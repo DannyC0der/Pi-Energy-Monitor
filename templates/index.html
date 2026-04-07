@@ -7,12 +7,22 @@
 </head>
 <body>
     <div style="width: 90%; margin: auto; padding-top: 50px;">
-        <h1 style="font-family: sans-serif;">Monitor Status: <span id="status" style="color: red;">Disconnected</span></h1>
+        <h1 style="font-family: sans-serif; margin-bottom: 5px;">
+            Monitor Status: <span id="status" style="color: red;">Disconnected</span>
+        </h1>
+        
+        <div style="margin-bottom: 20px;">
+            <h2 style="font-family: sans-serif; color: #2c3e50;">
+                Detected Device: <span id="device-label" style="color: #e67e22;">Analyzing...</span>
+            </h2>
+        </div>
+
         <canvas id="liveChart"></canvas>
     </div>
 
     <script>
         const statusText = document.getElementById('status');
+        const deviceLabel = document.getElementById('device-label');
         const ctx = document.getElementById('liveChart').getContext('2d');
         
         const chart = new Chart(ctx, {
@@ -23,19 +33,34 @@
                     label: 'Current (Amps)',
                     data: [],
                     borderColor: '#2ecc71',
+                    backgroundColor: 'rgba(46, 204, 113, 0.1)',
                     fill: true,
-                    tension: 0.3
+                    tension: 0.3,
+                    pointRadius: 4
                 }]
             },
             options: {
+                responsive: true,
                 scales: {
-                    y: { min: 0, max: 0.2, ticks: { stepSize: 0.01 } }
+                    x: { 
+                        display: true, 
+                        title: { display: true, text: 'Time' } 
+                    },
+                    y: { 
+                        min: 0, 
+                        max: 0.2, 
+                        ticks: { 
+                            stepSize: 0.01,
+                            callback: function(value) { return value.toFixed(2) + ' A'; }
+                        },
+                        title: { display: true, text: 'Amps' }
+                    }
                 },
                 animation: false
             }
         });
 
-        // Use the IP address of your Pi directly to avoid "localhost" confusion
+        // Initialize Socket.IO
         const socket = io(); 
 
         socket.on('connect', () => {
@@ -45,9 +70,17 @@
         });
 
         socket.on('new_data', function(msg) {
-            console.log("Data received:", msg.value);
+            console.log("Data received:", msg);
             let now = new Date().toLocaleTimeString();
             
+            // 1. Update the ML Prediction Label
+            if (msg.device) {
+                deviceLabel.innerText = msg.device.toUpperCase();
+            } else {
+                deviceLabel.innerText = "Unknown";
+            }
+
+            // 2. Update the Chart Data
             if (chart.data.labels.length > 20) {
                 chart.data.labels.shift();
                 chart.data.datasets[0].data.shift();
@@ -61,6 +94,7 @@
         socket.on('disconnect', () => {
             statusText.innerText = "Disconnected";
             statusText.style.color = "red";
+            deviceLabel.innerText = "Offline";
         });
     </script>
 </body>
