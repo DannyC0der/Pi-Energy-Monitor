@@ -1,101 +1,188 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Zoomed Real-Time Monitor</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Analytics AI Dashboard</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --primary: #2ecc71;
+            --secondary: #34495e;
+            --accent: #e67e22;
+            --text: #2c3e50;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .connected { background: #d4edda; color: #155724; }
+        .disconnected { background: #f8d7da; color: #721c24; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .label {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--secondary);
+        }
+
+        /* FIXED SIZE CHART CONTAINER */
+        .chart-card {
+            grid-column: span 2;
+            height: 400px; /* Forces the card to stay this height */
+            position: relative;
+        }
+
+        canvas {
+            max-height: 100% !important;
+            width: 100% !important;
+        }
+    </style>
 </head>
 <body>
-    <div style="width: 90%; margin: auto; padding-top: 50px;">
-        <h1 style="font-family: sans-serif; margin-bottom: 5px;">
-            Monitor Status: <span id="status" style="color: red;">Disconnected</span>
-        </h1>
-        
-        <div style="margin-bottom: 20px;">
-            <h2 style="font-family: sans-serif; color: #2c3e50;">
-                Detected Device: <span id="device-label" style="color: #e67e22;">Analyzing...</span>
-            </h2>
+
+<div class="dashboard-container">
+    <header>
+        <h1 style="font-size: 1.2rem;">Smart Load Monitor</h1>
+        <span id="status" class="status-badge disconnected">Offline</span>
+    </header>
+
+    <div class="grid">
+        <div class="card">
+            <div class="label">Real-Time Load</div>
+            <div class="value"><span id="current-val">0.000</span> <small style="font-size: 0.9rem;">A</small></div>
         </div>
 
-        <canvas id="liveChart"></canvas>
+        <div class="card">
+            <div class="label">AI Recognition</div>
+            <div class="value" id="device-label" style="color: var(--accent);">Analyzing...</div>
+        </div>
+
+        <div class="card chart-card">
+            <div class="label">Electrical Signature</div>
+            <canvas id="liveChart"></canvas>
+        </div>
     </div>
+</div>
 
-    <script>
-        const statusText = document.getElementById('status');
-        const deviceLabel = document.getElementById('device-label');
-        const ctx = document.getElementById('liveChart').getContext('2d');
-        
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Current (Amps)',
-                    data: [],
-                    borderColor: '#2ecc71',
-                    backgroundColor: 'rgba(46, 204, 113, 0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 4
-                }]
+<script>
+    const statusText = document.getElementById('status');
+    const deviceLabel = document.getElementById('device-label');
+    const currentValText = document.getElementById('current-val');
+    const ctx = document.getElementById('liveChart').getContext('2d');
+    
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Current (A)',
+                data: [],
+                borderColor: '#2ecc71',
+                backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false, // Allows it to fill the fixed-height container
+            scales: {
+                x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+                y: { 
+                    min: 0, 
+                    max: 0.5, // Updated to 0.5 as requested
+                    ticks: { stepSize: 0.05 }
+                }
             },
-            options: {
-                responsive: true,
-                scales: {
-                    x: { 
-                        display: true, 
-                        title: { display: true, text: 'Time' } 
-                    },
-                    y: { 
-                        min: 0, 
-                        max: 0.2, 
-                        ticks: { 
-                            stepSize: 0.01,
-                            callback: function(value) { return value.toFixed(2) + ' A'; }
-                        },
-                        title: { display: true, text: 'Amps' }
-                    }
-                },
-                animation: false
-            }
-        });
+            plugins: { legend: { display: false } },
+            animation: false // Set to false for better performance on Pi
+        }
+    });
 
-        // Initialize Socket.IO
-        const socket = io(); 
+    const socket = io(); 
 
-        socket.on('connect', () => {
-            statusText.innerText = "Connected";
-            statusText.style.color = "green";
-            console.log("Connected to Pi!");
-        });
+    socket.on('connect', () => {
+        statusText.innerText = "Live";
+        statusText.className = "status-badge connected";
+    });
 
-        socket.on('new_data', function(msg) {
-            console.log("Data received:", msg);
-            let now = new Date().toLocaleTimeString();
-            
-            // 1. Update the ML Prediction Label
-            if (msg.device) {
-                deviceLabel.innerText = msg.device.toUpperCase();
-            } else {
-                deviceLabel.innerText = "Unknown";
-            }
+    socket.on('new_data', function(msg) {
+        let now = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        
+        currentValText.innerText = msg.value.toFixed(3);
+        deviceLabel.innerText = msg.device ? msg.device.toUpperCase() : "UNKNOWN";
 
-            // 2. Update the Chart Data
-            if (chart.data.labels.length > 20) {
-                chart.data.labels.shift();
-                chart.data.datasets[0].data.shift();
-            }
-            
-            chart.data.labels.push(now);
-            chart.data.datasets[0].data.push(msg.value);
-            chart.update();
-        });
+        if (chart.data.labels.length > 30) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+        }
+        
+        chart.data.labels.push(now);
+        chart.data.datasets[0].data.push(msg.value);
+        chart.update();
+    });
 
-        socket.on('disconnect', () => {
-            statusText.innerText = "Disconnected";
-            statusText.style.color = "red";
-            deviceLabel.innerText = "Offline";
-        });
-    </script>
+    socket.on('disconnect', () => {
+        statusText.innerText = "Offline";
+        statusText.className = "status-badge disconnected";
+    });
+</script>
+
 </body>
 </html>

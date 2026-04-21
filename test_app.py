@@ -74,4 +74,4 @@ if __name__ == '__main__':
     sensor_thread.daemon = True
     sensor_thread.start()
     # Port 5000 is fine, but make sure no other process is using it
-    socketio.run(app, host='192.168.0.236', port=5000)
+    socketio.run(app, host='192.168.0.236', port=5003)
