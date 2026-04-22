@@ -51,9 +51,10 @@
         .connected { background: #d4edda; color: #155724; }
         .disconnected { background: #f8d7da; color: #721c24; }
 
+        /* Updated Grid for 3 cards */
         .grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 15px;
             margin-bottom: 15px;
         }
@@ -66,7 +67,7 @@
         }
 
         .label {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #7f8c8d;
             margin-bottom: 5px;
             font-weight: 600;
@@ -74,21 +75,42 @@
         }
 
         .value {
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             font-weight: 700;
             color: var(--secondary);
         }
 
-        /* FIXED SIZE CHART CONTAINER */
+        /* Confidence Bar Styling */
+        .progress-container {
+            width: 100%;
+            background-color: #ecf0f1;
+            border-radius: 10px;
+            height: 8px;
+            margin-top: 10px;
+        }
+
+        #confidence-bar {
+            height: 100%;
+            background-color: var(--primary);
+            width: 0%;
+            border-radius: 10px;
+            transition: width 0.5s ease-in-out;
+        }
+
         .chart-card {
-            grid-column: span 2;
-            height: 400px; /* Forces the card to stay this height */
+            grid-column: span 3;
+            height: 350px;
             position: relative;
         }
 
         canvas {
             max-height: 100% !important;
             width: 100% !important;
+        }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .chart-card { grid-column: span 1; }
         }
     </style>
 </head>
@@ -103,12 +125,20 @@
     <div class="grid">
         <div class="card">
             <div class="label">Real-Time Load</div>
-            <div class="value"><span id="current-val">0.000</span> <small style="font-size: 0.9rem;">A</small></div>
+            <div class="value"><span id="current-val">0.000</span> <small style="font-size: 0.8rem;">A</small></div>
         </div>
 
         <div class="card">
             <div class="label">AI Recognition</div>
             <div class="value" id="device-label" style="color: var(--accent);">Analyzing...</div>
+        </div>
+
+        <div class="card">
+            <div class="label">AI Confidence</div>
+            <div class="value"><span id="confidence-val">0</span><small style="font-size: 0.8rem;">%</small></div>
+            <div class="progress-container">
+                <div id="confidence-bar"></div>
+            </div>
         </div>
 
         <div class="card chart-card">
@@ -122,6 +152,8 @@
     const statusText = document.getElementById('status');
     const deviceLabel = document.getElementById('device-label');
     const currentValText = document.getElementById('current-val');
+    const confidenceText = document.getElementById('confidence-val');
+    const confidenceBar = document.getElementById('confidence-bar');
     const ctx = document.getElementById('liveChart').getContext('2d');
     
     const chart = new Chart(ctx, {
@@ -141,17 +173,13 @@
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false, // Allows it to fill the fixed-height container
+            maintainAspectRatio: false,
             scales: {
                 x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
-                y: { 
-                    min: 0, 
-                    max: 0.5, // Updated to 0.5 as requested
-                    ticks: { stepSize: 0.05 }
-                }
+                y: { min: 0, max: 0.5, ticks: { stepSize: 0.1 } }
             },
             plugins: { legend: { display: false } },
-            animation: false // Set to false for better performance on Pi
+            animation: false
         }
     });
 
@@ -165,14 +193,25 @@
     socket.on('new_data', function(msg) {
         let now = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
         
+        // Update Values
         currentValText.innerText = msg.value.toFixed(3);
         deviceLabel.innerText = msg.device ? msg.device.toUpperCase() : "UNKNOWN";
+        
+        // Update Confidence (assuming you send msg.confidence from Python)
+        if (msg.confidence !== undefined) {
+            let conf = Math.round(msg.confidence * 100);
+            confidenceText.innerText = conf;
+            confidenceBar.style.width = conf + "%";
+            
+            // Change color based on confidence
+            confidenceBar.style.backgroundColor = conf < 70 ? "#e74c3c" : "#2ecc71";
+        }
 
+        // Update Chart
         if (chart.data.labels.length > 30) {
             chart.data.labels.shift();
             chart.data.datasets[0].data.shift();
         }
-        
         chart.data.labels.push(now);
         chart.data.datasets[0].data.push(msg.value);
         chart.update();

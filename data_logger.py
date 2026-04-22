@@ -1,4 +1,5 @@
 import time, board, busio, math, csv
+import os
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 import numpy as np
@@ -13,11 +14,16 @@ SENSITIVITY = 30.0
 label = input("Enter device name (e.g., laptop, lamp, fan): ")
 filename = f"data/{label}_training.csv"
 
+file_exists = os.path.isfile(filename)
+
 print(f"Logging {label}... Press Ctrl+C to stop.")
 
-with open(filename, mode='w', newline='') as f:
+with open(filename, mode='a', newline='') as f:
     writer = csv.writer(f)
-    writer.writerow(['rms', 'h3_ratio', 'h5_ratio', 'label']) # Header
+
+    # Only write header  if we are making a new file
+    if not file_exists:
+    	writer.writerow(['rms', 'h3_ratio', 'h5_ratio', 'label'])
 
     while True:
         samples = []

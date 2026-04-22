@@ -1,6 +1,7 @@
 import time
 import board
 import busio
+import pandas as pd
 import joblib
 import numpy as np
 import adafruit_ads1x15.ads1115 as ADS
@@ -49,16 +50,25 @@ def read_sensor():
             h5 = yf[5] / fundamental
 
             # 3. Predict the device
-            features = np.array([[rms, h3, h5]])
-            prediction = model.predict(features)[0]
+            features = pd.DataFrame([[rms, h3, h5]], columns=['rms', 'h3_ratio', 'h5_ratio'])
+            probs = model.predict_proba(features)[0]
+            max_conf = float(np.max(probs))
+            best_guess = model.classes_[np.argmax(probs)]
+
+            #70% cnfidence threshold
+            if max_conf < 0.70:
+            	final_prediction = "UNKNOWN"
+            else:
+            	final_prediction = best_guess
             
             # 4. Emit to web dashboard
             socketio.emit('new_data', {
                 'value': round(rms, 3), 
-                'device': prediction
+                'device': final_prediction,
+		'confidence': max_conf
             })
             
-            print(f"Broadcasted: {prediction} at {rms:.3f} A")
+            print(f"Detected: {final_prediction} at {rms:.3f}A and ({max_conf*100:.lf%}) confidence")
 
         except Exception as e:
             print(f"Error: {e}")
@@ -74,4 +84,4 @@ if __name__ == '__main__':
     sensor_thread.daemon = True
     sensor_thread.start()
     # Port 5000 is fine, but make sure no other process is using it
-    socketio.run(app, host='192.168.0.236', port=5003)
+    socketio.run(app, host='192.168.0.236', port=5001)
