@@ -3,225 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Energy Analytics AI Dashboard</title>
+    <title>Advanced Energy AI Dashboard</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #f4f7f6;
-            --card-bg: #ffffff;
-            --primary: #2ecc71;
-            --secondary: #34495e;
-            --accent: #e67e22;
-            --text: #2c3e50;
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --primary: #22c55e;
+            --accent: #f59e0b;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
         }
 
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-color);
-            color: var(--text);
+            color: var(--text-main);
             margin: 0;
-            display: flex;
-            justify-content: center;
             padding: 20px;
-            overflow-x: hidden;
         }
 
-        .dashboard-container {
-            width: 100%;
-            max-width: 900px;
-        }
+        .container { max-width: 1100px; margin: auto; }
 
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 10px;
         }
 
-        .status-badge {
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .connected { background: #d4edda; color: #155724; }
-        .disconnected { background: #f8d7da; color: #721c24; }
-
-        /* Updated Grid for 3 cards */
         .grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 15px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
         .card {
             background: var(--card-bg);
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid #334155;
+            text-align: center;
         }
 
-        .label {
-            font-size: 0.75rem;
-            color: #7f8c8d;
-            margin-bottom: 5px;
-            font-weight: 600;
-            text-transform: uppercase;
+        .label { color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; font-weight: 700; margin-bottom: 10px; }
+        .value { font-size: 1.8rem; font-weight: 700; }
+        .unit { font-size: 0.9rem; color: var(--text-dim); margin-left: 4px; }
+
+        .chart-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
         }
 
-        .value {
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: var(--secondary);
+        .chart-card { background: var(--card-bg); padding: 20px; border-radius: 12px; height: 350px; }
+
+        .ai-badge {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            border: 1px solid var(--accent);
         }
 
-        /* Confidence Bar Styling */
-        .progress-container {
-            width: 100%;
-            background-color: #ecf0f1;
-            border-radius: 10px;
-            height: 8px;
-            margin-top: 10px;
+        #confidence-bar-wrap {
+            width: 100%; height: 6px; background: #334155; border-radius: 10px; margin-top: 10px; overflow: hidden;
         }
-
-        #confidence-bar {
-            height: 100%;
-            background-color: var(--primary);
-            width: 0%;
-            border-radius: 10px;
-            transition: width 0.5s ease-in-out;
-        }
-
-        .chart-card {
-            grid-column: span 3;
-            height: 350px;
-            position: relative;
-        }
-
-        canvas {
-            max-height: 100% !important;
-            width: 100% !important;
-        }
-
-        @media (max-width: 768px) {
-            .grid { grid-template-columns: 1fr; }
-            .chart-card { grid-column: span 1; }
-        }
+        #confidence-bar { height: 100%; width: 0%; background: var(--primary); transition: width 0.4s; }
     </style>
 </head>
 <body>
 
-<div class="dashboard-container">
+<div class="container">
     <header>
-        <h1 style="font-size: 1.2rem;">Smart Load Monitor</h1>
-        <span id="status" class="status-badge disconnected">Offline</span>
+        <h1>Energy Analytics System</h1>
+        <div id="ai-status" class="ai-badge">System Ready</div>
     </header>
 
     <div class="grid">
         <div class="card">
-            <div class="label">Real-Time Load</div>
-            <div class="value"><span id="current-val">0.000</span> <small style="font-size: 0.8rem;">A</small></div>
+            <div class="label">Real-Time Power</div>
+            <div class="value"><span id="power-val">0</span><span class="unit">W</span></div>
         </div>
 
         <div class="card">
-            <div class="label">AI Recognition</div>
-            <div class="value" id="device-label" style="color: var(--accent);">Analyzing...</div>
+            <div class="label">Energy Used</div>
+            <div class="value"><span id="kwh-val">0.0000</span><span class="unit">kWh</span></div>
         </div>
 
         <div class="card">
-            <div class="label">AI Confidence</div>
-            <div class="value"><span id="confidence-val">0</span><small style="font-size: 0.8rem;">%</small></div>
-            <div class="progress-container">
-                <div id="confidence-bar"></div>
-            </div>
+            <div class="label">Est. Cost (24p/kWh)</div>
+            <div class="value"><span class="unit">£</span><span id="cost-val">0.00</span></div>
         </div>
 
-        <div class="card chart-card">
-            <div class="label">Electrical Signature</div>
-            <canvas id="liveChart"></canvas>
+        <div class="card">
+            <div class="label">Power Factor</div>
+            <div class="value" id="pf-val">0.98</div>
+        </div>
+    </div>
+
+    <div class="chart-section">
+        <div class="chart-card">
+            <div class="label">Power Consumption History (Watts)</div>
+            <canvas id="historyChart"></canvas>
+        </div>
+
+        <div class="card" style="display: flex; flex-direction: column; justify-content: center;">
+            <div class="label">AI Device Recognition</div>
+            <div class="value" id="device-label" style="color: var(--accent); margin-bottom: 10px;">Idle</div>
+            <div class="label">Confidence: <span id="conf-text">0</span>%</div>
+            <div id="confidence-bar-wrap"><div id="confidence-bar"></div></div>
         </div>
     </div>
 </div>
 
 <script>
-    const statusText = document.getElementById('status');
-    const deviceLabel = document.getElementById('device-label');
-    const currentValText = document.getElementById('current-val');
-    const confidenceText = document.getElementById('confidence-val');
-    const confidenceBar = document.getElementById('confidence-bar');
-    const ctx = document.getElementById('liveChart').getContext('2d');
-    
-    const chart = new Chart(ctx, {
+    const socket = io();
+    let totalKwh = 0;
+    const COST_PER_KWH = 0.24;
+
+    const ctx = document.getElementById('historyChart').getContext('2d');
+    const historyChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: [],
             datasets: [{
-                label: 'Current (A)',
                 data: [],
-                borderColor: '#2ecc71',
-                backgroundColor: 'rgba(46, 204, 113, 0.1)',
-                borderWidth: 2,
+                borderColor: '#22c55e',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
                 fill: true,
-                tension: 0.3,
+                tension: 0.4,
                 pointRadius: 0
             }]
         },
         options: {
-            responsive: true,
             maintainAspectRatio: false,
-            scales: {
-                x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
-                y: { min: 0, max: 0.5, ticks: { stepSize: 0.1 } }
+            scales: { 
+                y: { beginAtZero: true, grid: { color: '#334155' } },
+                x: { grid: { display: false } }
             },
-            plugins: { legend: { display: false } },
-            animation: false
+            plugins: { legend: { display: false } }
         }
     });
 
-    const socket = io(); 
+    socket.on('new_data', (data) => {
+        // 1. Basic Metrics
+        const current = data.value; // Amps
+        const voltage = 230; // Assuming UK Standard
+        const pf = 0.95 + (Math.random() * 0.04); // Simulated PF for visual
+        const watts = current * voltage * pf;
 
-    socket.on('connect', () => {
-        statusText.innerText = "Live";
-        statusText.className = "status-badge connected";
-    });
+        document.getElementById('power-val').innerText = Math.round(watts);
+        document.getElementById('pf-val').innerText = pf.toFixed(2);
 
-    socket.on('new_data', function(msg) {
-        let now = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        
-        // Update Values
-        currentValText.innerText = msg.value.toFixed(3);
-        deviceLabel.innerText = msg.device ? msg.device.toUpperCase() : "UNKNOWN";
-        
-        // Update Confidence (assuming you send msg.confidence from Python)
-        if (msg.confidence !== undefined) {
-            let conf = Math.round(msg.confidence * 100);
-            confidenceText.innerText = conf;
-            confidenceBar.style.width = conf + "%";
-            
-            // Change color based on confidence
-            confidenceBar.style.backgroundColor = conf < 70 ? "#e74c3c" : "#2ecc71";
+        // 2. Accumulate Energy (kWh)
+        // Calculated every 1 second: Watts / 3600 seconds / 1000 W/kW
+        totalKwh += (watts / 3600 / 1000);
+        document.getElementById('kwh-val').innerText = totalKwh.toFixed(5);
+        document.getElementById('cost-val').innerText = (totalKwh * COST_PER_KWH).toFixed(2);
+
+        // 3. AI Update
+        document.getElementById('device-label').innerText = data.device.toUpperCase();
+        let conf = Math.round(data.confidence * 100);
+        document.getElementById('conf-text').innerText = conf;
+        document.getElementById('confidence-bar').style.width = conf + '%';
+
+        // 4. History Chart
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        if (historyChart.data.labels.length > 20) {
+            historyChart.data.labels.shift();
+            historyChart.data.datasets[0].data.shift();
         }
-
-        // Update Chart
-        if (chart.data.labels.length > 30) {
-            chart.data.labels.shift();
-            chart.data.datasets[0].data.shift();
-        }
-        chart.data.labels.push(now);
-        chart.data.datasets[0].data.push(msg.value);
-        chart.update();
-    });
-
-    socket.on('disconnect', () => {
-        statusText.innerText = "Offline";
-        statusText.className = "status-badge disconnected";
+        historyChart.data.labels.push(now);
+        historyChart.data.datasets[0].data.push(watts);
+        historyChart.update('none');
     });
 </script>
-
 </body>
 </html>

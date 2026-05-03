@@ -70,6 +70,13 @@ def read_sensor():
             
             print(f"Detected: {final_prediction} at {rms:.3f}A and ({max_conf*100:.lf%}) confidence")
 
+            # Inside your read_sensor while loop
+            socketio.emit('new_data', {
+               'value': float(rms),
+               'device': str(final_prediction),
+               'confidence': float(max_conf)
+            })
+
         except Exception as e:
             print(f"Error: {e}")
             
